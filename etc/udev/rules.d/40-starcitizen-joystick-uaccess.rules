@@ -1,0 +1,8 @@
+# Set the "uaccess" tag for raw HID access for Virpil Devices in wine
+# WarBRD 3344:40cb
+KERNEL=="hidraw*", ATTRS{idVendor}=="3344", ATTRS{idProduct}=="*", MODE="0660", TAG+="uaccess"
+
+# Set the "uaccess" tag for raw HID access for Thrustmaster Throttle Devices in wine
+# Throttle 044f:b687
+# T16000 044f:b10a
+KERNEL=="hidraw*", ATTRS{idVendor}=="044f", ATTRS{idProduct}=="*", MODE="0660", TAG+="uaccess"
