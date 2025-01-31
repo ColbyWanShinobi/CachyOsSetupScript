@@ -42,7 +42,6 @@ extlist=(
 "https://extensions.gnome.org/extension/4105/notification-banner-position/"
 "https://extensions.gnome.org/extension/4228/wireless-hid/"
 "https://extensions.gnome.org/extension/4548/tactile/"
-"https://extensions.gnome.org/extension/5575/power-profile-switcher/"
 "https://extensions.gnome.org/extension/615/appindicator-support/"
 "https://extensions.gnome.org/extension/6242/emoji-copy/"
 "https://extensions.gnome.org/extension/6278/battery-usage-wattmeter/"
