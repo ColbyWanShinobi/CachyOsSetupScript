@@ -7,7 +7,7 @@ set -e
 
 ################
 APP_NAME=apple-fonts
-EMOJI_URL='https://github.com/samuelngs/apple-emoji-linux/releases/download/v17.4/AppleColorEmoji.ttf'
+EMOJI_URL='https://github.com/samuelngs/apple-emoji-linux/releases/download/v18.4/AppleColorEmoji.ttf'
 ################
 # Space delimited list of required command-line utilities to run this script
 prereq_list=(curl fc-cache git)
@@ -48,7 +48,7 @@ if [ -d "${SETUP_PATH}/sfwin" ]; then
 else
   git clone https://github.com/aishalih/sfwin.git ${SETUP_PATH}/sfwin
   mkdir -p $HOME/.local/share/fonts/opentype/sfwin/
-  find ${SETUP_PATH}/sfwin -name \*.otf -exec sudo cp -v {} $HOME/.local/share/fonts/opentype/sfwin/ \;
+  find ${SETUP_PATH}/sfwin -name \*.otf -exec cp -v {} $HOME/.local/share/fonts/opentype/sfwin/ \;
   fc-cache -f -v
 fi
 
