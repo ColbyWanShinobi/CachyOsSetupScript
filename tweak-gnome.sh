@@ -53,6 +53,7 @@ dconf write /org/gnome/shell/extensions/dash-to-dock/running-indicator-style '"D
 dconf write /org/gnome/shell/extensions/dash-to-dock/show-apps-at-top true
 dconf write /org/gnome/shell/extensions/dash-to-dock/show-mounts false
 dconf write /org/gnome/shell/extensions/dash-to-dock/transparency-mode '"FIXED"'
+dconf write /org/gnome/shell/extensions/dash-to-dock/background-opacity "0.5"
 dconf write /org/gnome/shell/extensions/just-perfection/support-notifier-type "0"
 dconf write /org/gnome/shell/extensions/notifications-alert/color '"rgb(51,209,122)"'
 dconf write /org/gnome/shell/extensions/openweatherrefined/position-in-panel '"left"'
@@ -69,3 +70,4 @@ gsettings set org.gnome.desktop.app-folders folder-children "['System', 'Utiliti
 gsettings set org.gnome.desktop.app-folders.folder:/org/gnome/desktop/app-folders/folders/Games/ name 'Games'
 gsettings set org.gnome.desktop.app-folders.folder:/org/gnome/desktop/app-folders/folders/Games/ categories "['Game']"
 
+dconf write /org/gnome/desktop/interface/gtk-enable-primary-paste true
