@@ -71,3 +71,5 @@ gsettings set org.gnome.desktop.app-folders.folder:/org/gnome/desktop/app-folder
 gsettings set org.gnome.desktop.app-folders.folder:/org/gnome/desktop/app-folders/folders/Games/ categories "['Game']"
 
 dconf write /org/gnome/desktop/interface/gtk-enable-primary-paste true
+
+gsettings set org.gnome.shell always-show-log-out true
