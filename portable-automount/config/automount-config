@@ -1,0 +1,37 @@
+# Configuration file for portable auto-mount system
+# Edit these values to customize mount behavior
+
+# Defines the default subvolume to mount for btrfs if present (default: "@")
+AUTOMOUNT_BTRFS_MOUNT_SUBVOL="@"
+
+# Defines the mount options for btrfs (default: "rw,noatime,lazytime,commit=120,compress-force=zstd:4,space_cache=v2,discard=async")
+AUTOMOUNT_BTRFS_MOUNT_OPTS="rw,noatime,lazytime,commit=120,compress-force=zstd:4,space_cache=v2,discard=async"
+
+# Defines the mount options for ext4 (default: "rw,noatime,lazytime")
+AUTOMOUNT_EXT4_MOUNT_OPTS="rw,noatime,lazytime"
+
+# Defines the mount options for f2fs (default: "rw,noatime,lazytime,compress_algorithm=zstd,compress_chksum,atgc,gc_merge")
+AUTOMOUNT_F2FS_MOUNT_OPTS="rw,noatime,lazytime,compress_algorithm=zstd,compress_chksum,atgc,gc_merge"
+
+# Defines the mount options for FAT (default: "rw,noatime,lazytime,uid=1000,gid=1000,utf8=1")
+AUTOMOUNT_FAT_MOUNT_OPTS="rw,noatime,lazytime,uid=1000,gid=1000,utf8=1"
+
+# Defines the mount options for exFAT (default: "rw,noatime,lazytime,uid=1000,gid=1000")
+AUTOMOUNT_EXFAT_MOUNT_OPTS="rw,noatime,lazytime,uid=1000,gid=1000"
+
+# Defines the mount options for NTFS (default: "rw,noatime,lazytime,uid=1000,gid=1000,big_writes,umask=0022,ignore_case,windows_names")
+AUTOMOUNT_NTFS_MOUNT_OPTS="rw,noatime,lazytime,uid=1000,gid=1000,big_writes,umask=0022,ignore_case,windows_names"
+
+# Toggle to enable/disable the bind mount for Steam's compatdata/ folder on FAT, exFAT, NTFS filesystems.
+# Setting it to 1 will prevent the eject functionality in the Steam client from working but proton games will start.
+# 0 = disabled, 1 = enabled (default: 0)
+AUTOMOUNT_COMPATDATA_BIND_MOUNT="0"
+
+# User ID and Group ID for ownership (default: 1000:1000)
+# These are used for FAT/exFAT/NTFS filesystems and directory permissions
+AUTOMOUNT_UID="1000"
+AUTOMOUNT_GID="1000"
+
+# Username for Steam-specific features (default: current user with UID 1000)
+# This is used for Steam compatdata bind mounts
+AUTOMOUNT_USER="$(getent passwd ${AUTOMOUNT_UID} | cut -d: -f1)"

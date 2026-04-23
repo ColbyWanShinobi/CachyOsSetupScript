@@ -1,0 +1,15 @@
+# Mount any sd* (USB/SATA) or nvme* (NVMe) drives that have a filesystem label
+# This allows you to control which drives automount by labeling them
+# Excludes EFI and VTOYEFI partitions
+
+KERNEL!="sd*|nvme*",            GOTO="automount_labeled_end"
+ENV{ID_FS_USAGE}!="filesystem", GOTO="automount_labeled_end"
+ENV{ID_FS_LABEL}=="EFI",        GOTO="automount_labeled_end"
+ENV{ID_FS_LABEL}=="VTOYEFI",    GOTO="automount_labeled_end"
+ENV{ID_FS_LABEL}!="?*",         GOTO="automount_labeled_end"
+
+# The service expects to be asynchronous and shouldn't block udev rules
+ACTION=="add",    RUN+="/usr/bin/systemd-run --no-block --collect /usr/local/libexec/automount/block-device-event.sh add %k"
+ACTION=="remove", RUN+="/usr/bin/systemd-run --no-block --collect /usr/local/libexec/automount/block-device-event.sh remove %k"
+
+LABEL="automount_labeled_end"

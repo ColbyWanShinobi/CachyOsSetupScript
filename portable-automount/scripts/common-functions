@@ -1,0 +1,40 @@
+#!/bin/bash
+# Common functions for automount scripts
+
+# Function to make DBus calls to udisks2
+make_dbus_udisks_call() {
+    local action="$1"
+    local jq_query="$2"
+    local result_type="$3"  # Type hint (s, t, etc.) - not used with --json=short
+    local object_path="$4"
+    local interface="$5"
+    shift 5
+
+    local cmd=(busctl "${action}" --json=short org.freedesktop.UDisks2 "/org/freedesktop/UDisks2/${object_path}" "org.freedesktop.UDisks2.${interface}" "$@")
+
+    if [[ "${action}" == "call" ]]; then
+        local result
+        result=$("${cmd[@]}" 2>&1) || {
+            echo "DBus call failed: ${cmd[*]}" >&2
+            echo "Error: ${result}" >&2
+            return 1
+        }
+        jq -r "${jq_query}" <<< "${result}" 2>/dev/null || echo ""
+    else
+        "${cmd[@]}"
+    fi
+}
+
+# Function to send notifications (placeholder - can be extended)
+send_steam_url() {
+    local endpoint="$1"
+    local data="$2"
+    # This is a placeholder for Steam-specific notifications
+    # Can be extended to send actual notifications if needed
+    echo "Notification: ${endpoint} - ${data}" | logger -t automount
+}
+
+# Constants for error codes
+readonly FSCK_ERROR="fsck_error"
+readonly MOUNT_ERROR="mount_error"
+readonly MOUNT_SUCCESS="mount_success"
