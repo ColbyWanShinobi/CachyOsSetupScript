@@ -32,6 +32,7 @@ sudo pacman -Syu --needed \
   libvirt \
   virt-manager \
   dnsmasq \
+  samba \
   iptables \
   dmidecode \
   edk2-ovmf \
