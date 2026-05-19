@@ -73,3 +73,6 @@ gsettings set org.gnome.desktop.app-folders.folder:/org/gnome/desktop/app-folder
 dconf write /org/gnome/desktop/interface/gtk-enable-primary-paste true
 
 gsettings set org.gnome.shell always-show-log-out true
+
+# App not responding timeout. Default ws 15 secs (15000)
+gsettings set org.gnome.mutter check-alive-timeout 60000
