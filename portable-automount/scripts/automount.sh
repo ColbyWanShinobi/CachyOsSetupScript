@@ -4,11 +4,6 @@
 
 set -euo pipefail
 
-# File locking to prevent concurrent mount operations
-if [[ "${FLOCKER:-}" != "$0" ]]; then
-    exec env FLOCKER="$0" flock -e -w 20 "$0" "$0" "$@"
-fi
-
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -43,6 +38,91 @@ DEVICE="/dev/${DEVBASE}"
 # Get user UID/GID from config or use defaults
 DECK_UID="${AUTOMOUNT_UID:-1000}"
 DECK_GID="${AUTOMOUNT_GID:-1000}"
+LOCK_DIR="/run/lock/automount"
+DEVICE_LOCK_WAIT="${AUTOMOUNT_DEVICE_LOCK_WAIT:-20}"
+GLOBAL_LOCK_WAIT="${AUTOMOUNT_GLOBAL_LOCK_WAIT:-60}"
+
+mkdir -p "${LOCK_DIR}"
+
+acquire_device_lock() {
+    local lock_file="${LOCK_DIR}/device-${DEVBASE}.lock"
+
+    exec 9>"${lock_file}"
+    if ! flock -e -w "${DEVICE_LOCK_WAIT}" 9; then
+        echo "Error: Timed out waiting for device lock on ${DEVICE}" >&2
+        exit 1
+    fi
+}
+
+with_global_lock() {
+    local lock_name="$1"
+    local lock_wait="$2"
+    shift 2
+
+    (
+        exec 8>"${LOCK_DIR}/${lock_name}.lock"
+        if ! flock -e -w "${lock_wait}" 8; then
+            echo "Error: Timed out waiting for global lock '${lock_name}'" >&2
+            exit 1
+        fi
+        "$@"
+    )
+}
+
+ensure_filesystem_registered_impl() {
+    local fs_name="$1"
+
+    if [[ ! -f /etc/filesystems ]] || ! grep -qxF "${fs_name}" /etc/filesystems; then
+        echo "${fs_name}" >> /etc/filesystems
+    fi
+}
+
+ensure_filesystem_registered() {
+    local fs_name="$1"
+
+    with_global_lock "filesystems" "${GLOBAL_LOCK_WAIT}" \
+        ensure_filesystem_registered_impl "${fs_name}"
+}
+
+mount_with_temporary_udisks_options() {
+    local fstype="$1"
+    local allow_opts="$2"
+    local mount_opts="$3"
+    local udisks2_mount_options_conf='/etc/udisks2/mount_options.conf'
+    local mount_point
+
+    mkdir -p "$(dirname "${udisks2_mount_options_conf}")"
+
+    if [[ -f "${udisks2_mount_options_conf}" ]] && [[ ! -f "${udisks2_mount_options_conf}.orig" ]]; then
+        mv -f "${udisks2_mount_options_conf}"{,.orig}
+    fi
+
+    printf "[defaults]\n%s_allow=%s,%s\n" \
+        "${fstype}" "${allow_opts}" "${mount_opts}" > "${udisks2_mount_options_conf}"
+
+    mount_point=$(make_dbus_udisks_call call 'data[0]' s \
+                                     "block_devices/${DEVBASE}" \
+                                     Filesystem Mount \
+                                     'a{sv}' 4 \
+                                     as-user s "$(getent passwd "${DECK_UID}" | cut -d: -f1)" \
+                                     auth.no_user_interaction b true \
+                                     fstype s "${fstype}" \
+                                     options s "${mount_opts}")
+    local status=$?
+
+    rm -f "${udisks2_mount_options_conf}"
+    if [[ -f "${udisks2_mount_options_conf}.orig" ]]; then
+        mv -f "${udisks2_mount_options_conf}"{.orig,}
+    fi
+
+    if (( status != 0 )); then
+        return "${status}"
+    fi
+
+    printf "%s\n" "${mount_point}"
+}
+
+acquire_device_lock
 
 # Mount function
 do_mount() {
@@ -79,10 +159,7 @@ do_mount() {
             UDISKS2_ALLOW='discard,nodiscard,compress_algorithm,compress_log_size,compress_extension,alloc_mode'
             OPTS="${AUTOMOUNT_F2FS_MOUNT_OPTS:-rw,noatime,lazytime,compress_algorithm=zstd,compress_chksum,atgc,gc_merge}"
             FSTYPE="f2fs"
-            # Ensure f2fs is in /etc/filesystems
-            if [[ ! -f /etc/filesystems ]] || ! grep -q '\bf2fs\b' /etc/filesystems; then
-                echo "f2fs" >> /etc/filesystems
-            fi
+            ensure_filesystem_registered "f2fs"
             ;;
         btrfs)
             UDISKS2_ALLOW='compress,compress-force,datacow,nodatacow,datasum,nodatasum,autodefrag,noautodefrag,degraded,device,discard,nodiscard,subvol,subvolid,space_cache'
@@ -116,10 +193,7 @@ do_mount() {
             UDISKS2_ALLOW='uid=$UID,gid=$GID,umask,dmask,fmask,locale,norecover,ignore_case,windows_names,compression,nocompression,big_writes,nls,nohidden,sys_immutable,sparse,showmeta,prealloc'
             OPTS="${AUTOMOUNT_NTFS_MOUNT_OPTS:-rw,noatime,lazytime,uid=${DECK_UID},gid=${DECK_GID},big_writes,umask=0022,ignore_case,windows_names}"
             FSTYPE="lowntfs-3g"
-            # Ensure lowntfs-3g is in /etc/filesystems
-            if [[ ! -f /etc/filesystems ]] || ! grep -q '\blowntfs-3g\b' /etc/filesystems; then
-                echo "lowntfs-3g" >> /etc/filesystems
-            fi
+            ensure_filesystem_registered "lowntfs-3g"
             ;;
         *)
             echo "Error: Unsupported filesystem type: ${ID_FS_TYPE}"
@@ -127,21 +201,6 @@ do_mount() {
             return 2
             ;;
     esac
-
-    # Configure udisks2 mount options
-    udisks2_mount_options_conf='/etc/udisks2/mount_options.conf'
-    mkdir -p "$(dirname "${udisks2_mount_options_conf}")"
-
-    # Backup original config if exists
-    if [[ -f "${udisks2_mount_options_conf}" ]] && [[ ! -f "${udisks2_mount_options_conf}.orig" ]]; then
-        mv -f "${udisks2_mount_options_conf}"{,.orig}
-    fi
-
-    # Write temporary mount options
-    echo -e "[defaults]\n${FSTYPE}_allow=${UDISKS2_ALLOW},${OPTS}" > "${udisks2_mount_options_conf}"
-
-    # Cleanup function to restore original config
-    trap 'rm -f "${udisks2_mount_options_conf}"; [[ -f "${udisks2_mount_options_conf}.orig" ]] && mv -f "${udisks2_mount_options_conf}"{.orig,}' EXIT
 
     # Filesystem check before mounting
     local ret=0
@@ -157,16 +216,9 @@ do_mount() {
         exit 3
     fi
 
-    # Mount via udisks2 DBus
     local mount_point
-    mount_point=$(make_dbus_udisks_call call 'data[0]' s \
-                                 "block_devices/${DEVBASE}" \
-                                 Filesystem Mount \
-                                 'a{sv}' 4 \
-                                 as-user s "$(getent passwd ${DECK_UID} | cut -d: -f1)" \
-                                 auth.no_user_interaction b true \
-                                 fstype s "$FSTYPE" \
-                                 options s "$OPTS")
+    mount_point=$(with_global_lock "udisks2-mount-options" "${GLOBAL_LOCK_WAIT}" \
+        mount_with_temporary_udisks_options "${FSTYPE}" "${UDISKS2_ALLOW}" "${OPTS}")
 
     if [[ -z "${mount_point}" ]] || [[ "${mount_point}" == "null" ]]; then
         echo "Error: Failed to mount ${DEVICE}"

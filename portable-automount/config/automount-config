@@ -35,3 +35,11 @@ AUTOMOUNT_GID="1000"
 # Username for Steam-specific features (default: current user with UID 1000)
 # This is used for Steam compatdata bind mounts
 AUTOMOUNT_USER="$(getent passwd ${AUTOMOUNT_UID} | cut -d: -f1)"
+
+# Wait time in seconds for the per-device lock. This only applies when the same
+# block device emits overlapping events.
+AUTOMOUNT_DEVICE_LOCK_WAIT="20"
+
+# Wait time in seconds for short global locks around shared files like
+# /etc/filesystems and /etc/udisks2/mount_options.conf.
+AUTOMOUNT_GLOBAL_LOCK_WAIT="60"

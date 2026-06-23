@@ -9,7 +9,8 @@ A portable automatic disk mounting system for Linux, extracted from the Bazzite 
 - Filesystem-specific mount options for optimal performance
 - Optional Steam-specific optimizations (btrfs subvolumes for downloading/temp, compatdata bind mounts)
 - Label-based filtering (e.g., auto-mount drives labeled "steamgames")
-- Safe concurrent mounting with file locking
+- Per-device locking so one slow disk does not block every other mount
+- Short global locking only around shared system files
 - Automatic filesystem checking and repair
 
 ## Requirements
@@ -69,6 +70,10 @@ AUTOMOUNT_BTRFS_MOUNT_OPTS="rw,noatime,lazytime,compress-force=zstd:4,space_cach
 
 # Enable Steam compatdata bind mount for FAT/exFAT/NTFS (0=disabled, 1=enabled)
 AUTOMOUNT_COMPATDATA_BIND_MOUNT="0"
+
+# Per-device and shared-resource lock timeouts in seconds
+AUTOMOUNT_DEVICE_LOCK_WAIT="20"
+AUTOMOUNT_GLOBAL_LOCK_WAIT="60"
 ```
 
 ## How It Works
@@ -76,10 +81,11 @@ AUTOMOUNT_COMPATDATA_BIND_MOUNT="0"
 1. When a storage device is connected, udev detects it and triggers the automount system
 2. The system uses `systemd-run` to execute the mount script asynchronously
 3. Device information is retrieved via `lsblk` and `jq`
-4. Filesystem-specific mount options are applied from the configuration file
-5. The device is mounted via udisks2 DBus interface
-6. For btrfs: Special subvolumes are created for Steam directories if needed
-7. For FAT/exFAT/NTFS: Optional bind mounts for Steam compatdata
+4. Each device gets its own lock, so a slow fsck on one disk does not stall the others
+5. Filesystem-specific mount options are applied from the configuration file
+6. The device is mounted via udisks2 DBus interface while holding a short lock around the shared udisks2 config file
+7. For btrfs: Special subvolumes are created for Steam directories if needed
+8. For FAT/exFAT/NTFS: Optional bind mounts for Steam compatdata
 
 ## Udev Rules
 

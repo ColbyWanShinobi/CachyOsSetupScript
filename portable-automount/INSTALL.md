@@ -132,6 +132,7 @@ sudo pacman -S ntfs-3g
      lsblk
      ```
    - Look for mounts under `/run/media/`
+   - If several drives appear at once, mounts now run in parallel per device. A slow `fsck` on one disk should not block the others.
 
 ## Configuration
 
@@ -163,6 +164,17 @@ AUTOMOUNT_BTRFS_MOUNT_OPTS="rw,noatime,lazytime,compress-force=zstd:4,space_cach
 ```bash
 AUTOMOUNT_NTFS_MOUNT_OPTS="rw,noatime,lazytime,uid=1000,gid=1000,big_writes,umask=0022,ignore_case,windows_names"
 ```
+
+#### Adjust lock wait times
+```bash
+# Per-device lock for duplicate events on the same block device
+AUTOMOUNT_DEVICE_LOCK_WAIT="20"
+
+# Short shared locks for /etc/filesystems and /etc/udisks2/mount_options.conf
+AUTOMOUNT_GLOBAL_LOCK_WAIT="60"
+```
+
+Use a larger `AUTOMOUNT_DEVICE_LOCK_WAIT` only if the same device frequently emits overlapping `add` events. Increasing `AUTOMOUNT_GLOBAL_LOCK_WAIT` is usually unnecessary unless the machine is under heavy storage contention.
 
 ### Customizing Udev Rules
 
@@ -212,6 +224,34 @@ sudo udevadm trigger --subsystem-match=block
    ```bash
    systemctl status udisks2
    ```
+
+### Slow or failing disk blocks other mounts
+
+Current versions use per-device locks, so one unhealthy disk should no longer serialize every other mount job. If mounts still appear delayed:
+
+1. **Check for device-specific lock timeouts**
+   ```bash
+   journalctl -b | grep "Timed out waiting for device lock"
+   ```
+   This means the same device generated overlapping events and exhausted `AUTOMOUNT_DEVICE_LOCK_WAIT`.
+
+2. **Check for shared-resource lock timeouts**
+   ```bash
+   journalctl -b | grep "Timed out waiting for global lock"
+   ```
+   This points to contention around `/etc/filesystems` or `/etc/udisks2/mount_options.conf`, which should be brief.
+
+3. **Check for slow filesystem checks**
+   ```bash
+   journalctl -b | grep -E "fsck|ntfsfix|mount_error"
+   ```
+   If one disk is taking a long time in `fsck`, that device can still be slow to mount, but other devices should continue independently.
+
+4. **Test one device manually**
+   ```bash
+   sudo /usr/local/libexec/automount/automount.sh add sda1
+   ```
+   Replace `sda1` with the actual device. This helps isolate whether the delay is caused by that disk's health, filesystem checks, or mount options.
 
 ### Permission denied errors
 
